@@ -10,12 +10,13 @@ Everything else in this part is advisory: Claude reads it and generally complies
 
 ## The event map
 
-Roughly thirty events fire across a session. These are the ones you will actually configure.
+Over thirty events fire across a session. These are the ones you will actually configure.
 
 | Event | Fires | Can block? |
 | --- | --- | --- |
 | `SessionStart` | Session begins or resumes. Matchers: `startup`, `resume`, `clear`, `compact`, `fork` | No — but stdout is **added to context** |
 | `UserPromptSubmit` | Before Claude processes your prompt | **Yes** — and stdout enters context |
+| `PreSkillShellCommand` v2.1.332 | Before a skill’s inline `` !`command` `` runs while the skill loads | **Yes** — refuse only; it cannot approve or rewrite. `PreToolUse` never fires for these. → Ch. 12 |
 | `PreToolUse` | Before a tool call executes. Matchers: tool names, `mcp__*` | **Yes** — and can rewrite the arguments |
 | `PostToolUse` | After a tool call succeeds | **Yes** — blocks the next action; can rewrite the output |
 | `PostToolUseFailure` | After a tool call fails | No — logging and alerting only |
@@ -28,7 +29,7 @@ Roughly thirty events fire across a session. These are the ones you will actuall
 | `InstructionsLoaded` | A `CLAUDE.md` or rule file loads | No — **the debugging tool for “which rules loaded and why”** |
 | `SessionEnd` | Session terminates | No |
 
-Others exist for narrower needs: `Setup`, `UserPromptExpansion`, `PermissionDenied`, `PostToolBatch`, `MessageDisplay`, `TaskCreated`/`TaskCompleted`, `StopFailure`, `TeammateIdle`, `CwdChanged`, `ConfigChange`, `WorktreeCreate`/`WorktreeRemove`, and the MCP `Elicitation` pair.
+Others exist for narrower needs: `Setup`, `UserPromptExpansion`, `PermissionDenied`, `PostToolBatch`, `MessageDisplay`, `TaskCreated`/`TaskCompleted`, `StopFailure`, `TeammateIdle`, `CwdChanged`, `DirectoryAdded`, `ConfigChange`, `WorktreeCreate`/`WorktreeRemove`, `PreModelSwitch`/`PostModelSwitch` (the pre hook can block a `/model` switch), and the MCP `Elicitation`/`ElicitationResult` pair — `Elicitation` can answer a server’s mid-task question without showing a dialog. → Ch. 15
 
 ## Configuration shape
 
@@ -79,9 +80,19 @@ MCP tools follow `mcp__<server>__<tool>`; plugin-provided servers add a prefix: 
 | --- | --- | --- |
 | `0` | Success | Proceeds; **stdout is parsed as JSON** for decision control |
 | `2` | Blocking error | Blocks the action; **stderr becomes the reason** Claude sees |
-| other | Non-blocking error | Proceeds; a stderr preview appears in the transcript |
+| other | Non-blocking error | Proceeds; a stderr preview appears in the transcript — **unless the hook sets `onFailure: "block"`** |
 
 Exit `1` is non-blocking for almost every event — `WorktreeCreate` is the exception, where any non-zero fails creation. Default timeouts: **600 s** for `command`/`http`/`mcp_tool` (but **30 s** for `UserPromptSubmit` and **10 s** for `MessageDisplay`), **30 s** for `prompt`, **60 s** for `agent`. All matching hooks run in parallel and identical handlers are deduplicated.
+
+## When the hook itself fails
+
+By default a hook that cannot start, times out, or returns invalid output **fails open**: the action proceeds. A policy hook with a mistyped path then lets everything through, and says so only in a stderr preview. Set `"onFailure": "block"` on a `command`, `http`, or `mcp_tool` hook (v2.1.295; `mcp_tool` v2.1.328) and any of these counts as a failure that behaves like exit 2 on that event — a `PreToolUse` failure blocks the call, a `UserPromptSubmit` failure blocks the prompt, a `PermissionRequest` failure denies:
+
+- the command cannot start, or exits with anything other than 0 or 2 — even if it printed JSON that says `allow`;
+- an HTTP hook’s connection fails or the status is not 2xx; an `mcp_tool` hook’s server is down or its tool errors;
+- the hook times out, or its JSON output does not parse or validate.
+
+It has no effect on `Stop`, `SubagentStop`, `TaskCompleted`, `TeammateIdle` — where exit 2 sends Claude back to work and a broken hook cannot be repaired by Claude — or on `async` hooks.
 
 ## Decision control via JSON
 
@@ -120,8 +131,8 @@ Fields available on every hook: `continue: false` stops Claude entirely, `stopRe
 > **Key — The three hooks worth writing first**
 >
 > 1. **PostToolUse on `Edit|Write` → run the formatter.** Removes an entire class of instruction from `CLAUDE.md`, permanently.
-> 2. **PreToolUse on `Bash` with `if: "Bash(rm *)"` → guard destructive commands.** Deterministic where a stated boundary is not.
-> 3. **Stop → run the test suite; exit 2 if it fails.** The turn cannot end on red. Claude Code overrides after 8 consecutive blocks, so make the check achievable.
+> 2. **PreToolUse on `Bash` with `if: "Bash(rm *)"` → guard destructive commands.** Deterministic where a stated boundary is not. Add `"onFailure": "block"` so a missing or crashing script cannot silently let the command through.
+> 3. **Stop → run the test suite; exit 2 if it fails.** The turn cannot end on red. Claude Code overrides after 8 consecutive blocks (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` raises it), so make the check achievable.
 
 ## Writing the check a Stop hook runs
 
@@ -148,7 +159,7 @@ exit 2
 
 ## Two debugging facts
 
-- `InstructionsLoaded` logs exactly **which instruction files loaded, when, and why** — `session_start`, `nested_traversal`, `path_glob_match`, `include`, or `compact`. It is the fastest way to find out why a path-scoped rule is not firing.
+- `InstructionsLoaded` logs exactly **which instruction files loaded, when, and why** — `session_start`, `nested_traversal`, `path_glob_match`, `include`, or `compact`. It is the fastest way to find out why a path-scoped rule is not firing. It does not fire for an `AGENTS.md` that Claude reads through the **Project instructions** setting — only for one a `CLAUDE.md` imports or symlinks to. → Ch. 10
 - `SessionStart` **refires with `source: "compact"`** after compaction, which is how you re-inject context that compaction dropped.
 
 > **Note — Path placeholders**
@@ -158,3 +169,7 @@ exit 2
 Hooks can also be declared in skill and subagent frontmatter, scoped to that component’s lifetime; a `Stop` hook declared there is converted to `SubagentStop`. Global kill switches: `disableAllHooks` at any settings level, and `allowManagedHooksOnly` in managed settings — both of which also disable `/goal`, since its evaluator is part of the hooks system.
 
 Finally: **Claude can write hooks for you.** “Write a hook that runs eslint after every file edit” or “write a hook that blocks writes to the migrations folder” both work, and `/hooks` browses what is configured.
+
+> **Warning — Read where the hooks come from before you trust a folder**
+>
+> Hooks in a settings file — including your own `~/.claude/settings.json` — are held back in an interactive session until you accept the workspace trust dialog, and since v2.1.329 that dialog says **where** the folder’s hooks are declared. Read it: a committed `.claude/settings.json` hook runs shell commands with your full permissions. `claude -p` and SDK sessions never show the dialog and treat the folder as trusted, so hooks committed to a repo you did not write run anyway — start with `--bare`, or pass `--settings '{"disableAllHooks": true}'`.

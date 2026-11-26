@@ -11,7 +11,7 @@ _VI · Prompts · Chapter 31_
 | **Show, don’t describe** | Paste files, attach mockups, link references. Material the agent can look at beats prose it has to interpret. “Match this file” resolves in one shot what a paragraph of stylistic adjectives will not. |
 | **State the outcome, not the mistake** | “Use the real API response for every field” beats “don’t add placeholder data”. A model satisfies a negative instruction by avoiding the named failure, which can still miss the goal; naming the outcome closes the gap. |
 | **“Act as” framing** | “Act as a security reviewer” shifts the _kind_ of scrutiny you get back from generic to role-specific. |
-| **Ask it to think before it codes** | One sentence — “think through approaches before writing anything” — measurably improves complex-task output. |
+| **Ask it to think before it codes** | One sentence — “think through approaches before writing anything” — measurably improves complex-task output. For _more_ reasoning, turn the dial rather than the wording: “think hard” is ordinary prompt text, while `/effort` (or `ultrathink` for one turn) actually changes it. → Ch. 28 |
 
 Keep a running list of your agent’s repeat offences and convert each into a positive instruction. That list, not a generic style guide, is what belongs in `CLAUDE.md`.
 

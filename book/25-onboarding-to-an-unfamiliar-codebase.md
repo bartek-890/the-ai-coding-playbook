@@ -34,7 +34,7 @@ The last one is a deliberate exception to the “be specific” rule. A vague pr
 
 3. **Write what you learned into `CLAUDE.md` — but only the non-obvious parts**
 
-   Run `/init` if there is no file yet: it detects build systems, test frameworks, and code patterns and gives you a foundation. Then apply the one-minute test to everything it generated. → Ch. 10
+   Run `/init` if there is no file yet: it detects build systems, test frameworks, and code patterns and gives you a foundation. Then apply the one-minute test to everything it generated. A repo that ships an `AGENTS.md` and no `CLAUDE.md` already works: Claude reads `AGENTS.md` as the project instructions (v2.1.277); with both files present, only `CLAUDE.md` is read unless it imports `AGENTS.md`. → Ch. 10
 
 4. **`/clear` before you write your first line of code**
 

@@ -103,7 +103,17 @@ Claude Code walks _up_ from your working directory, loading `CLAUDE.md` and `CLA
 
 ## AGENTS.md and the other tools
 
-Claude Code reads `CLAUDE.md`, not `AGENTS.md`. If your repo already uses `AGENTS.md` for Codex, Cursor, or others, do not maintain two drifting copies — import it:
+Since v2.1.277 Claude Code reads `AGENTS.md` itself — but only when there is no `CLAUDE.md` to read. What loads depends on what your repository holds:
+
+| Your repo has | Claude reads |
+| --- | --- |
+| `AGENTS.md`, no `CLAUDE.md` or `CLAUDE.local.md` in the working directory or above it | `AGENTS.md` |
+| `AGENTS.md` and a `CLAUDE.md` or `CLAUDE.local.md` | `CLAUDE.md` files only |
+| A `CLAUDE.md` that imports `AGENTS.md` | `CLAUDE.md`, with `AGENTS.md` pulled in by the import — never read twice |
+
+Your `~/.claude/CLAUDE.md`, the managed `CLAUDE.md`, and `.claude/rules/` do not count as “having a `CLAUDE.md`”, so they keep loading beside `AGENTS.md`. A personal `CLAUDE.local.md` _does_ count — adding one to an `AGENTS.md` repo quietly stops Claude reading `AGENTS.md`. To load both, set **Project instructions** to `claude-md-and-agents-md` in `/config` (the default is `claude-md-or-agents-md`). Subdirectory `AGENTS.md` files load on demand like nested `CLAUDE.md`; `AGENTS.local.md`, `AGENTS.override.md`, and `.agents/` are not read. `/memory` lists the `AGENTS.md` Claude actually loaded.
+
+When your repo has both files, or you need Claude-specific additions, do not maintain two drifting copies — import:
 
 ```
 <!-- CLAUDE.md -->
@@ -113,9 +123,16 @@ Claude Code reads `CLAUDE.md`, not `AGENTS.md`. If your repo already uses `AGENT
 Use plan mode for changes under `src/billing/`.
 ```
 
-A symlink works too (`ln -s AGENTS.md CLAUDE.md`) when you have nothing Claude-specific to add. On Windows, symlinks need Administrator or Developer Mode — use the import.
+A symlink works too (`ln -s AGENTS.md CLAUDE.md`) when you have nothing Claude-specific to add; Edit and Write refuse to write through it and point Claude at `AGENTS.md` instead. On Windows, symlinks need Administrator or Developer Mode — use the import. The import is also the fallback for sessions that cannot read `AGENTS.md` directly (v2.1.280 and earlier on Bedrock or with telemetry off, or if you disabled the built-in `cc-plugin-agents-md` in `/plugin`). A `SessionStart` hook that prints `AGENTS.md` into context is now a duplicate — remove it.
 
-`/init` reads Cursor rules (`.cursor/rules/`, `.cursorrules`) and Copilot instructions (`.github/copilot-instructions.md`) and folds the relevant parts in. With `CLAUDE_CODE_NEW_INIT=1` it also reads `AGENTS.md`, `.devin/rules/`, `.windsurf/rules/`, and `.clinerules`, runs an interactive multi-phase flow, and presents a reviewable proposal before writing anything.
+`/init` reads Cursor rules (`.cursor/rules/`, `.cursorrules`) and Copilot instructions (`.github/copilot-instructions.md`) and folds the relevant parts in. With `CLAUDE_CODE_NEW_INIT=1` it also reads `AGENTS.md`, `.devin/rules/`, `.windsurf/rules/`, and `.clinerules`, runs an interactive multi-phase flow, and presents a reviewable proposal before writing anything. `/import [codex|gemini|cursor]` copies instruction files, MCP servers, commands, subagents, and skills from another agent’s configuration on your machine.
+
+## Let Claude audit the file
+
+Two commands do the pruning you would otherwise do by hand:
+
+- **`/doctor`** — a setup checkup that, for `CLAUDE.md`, flags local copies duplicating checked-in ones and checked-in content Claude could derive from the codebase (directory layouts, dependency lists, architecture overviews). It keeps pitfalls, rationale, and conventions that differ from tool defaults, and offers to migrate the always-loaded guidance that remains into skills and nested `CLAUDE.md` files.
+- **`/doctor prompt-audit`** v2.1.283+ — audits your `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, rules, skills, commands, subagents, and output styles for instructions written for older models, references to files or commands that no longer exist, and files that contradict each other. It returns findings with proposed edits and changes nothing until you ask. Pass a path to scope it: `/doctor prompt-audit .claude/skills/deploy`.
 
 ## Migrating a file that has already gone wrong
 
@@ -137,6 +154,6 @@ A symlink works too (`ln -s AGENTS.md CLAUDE.md`) when you have nothing Claude-s
 
 5. **Verify it loaded**
 
-   Run `/context` and check the **Memory files** list. If it is not there, Claude cannot see it, and no amount of rewriting will help.
+   Run `/context all` and check the **Memory files** list (`/memory` lists them too, `AGENTS.md` included). If it is not there, Claude cannot see it, and no amount of rewriting will help.
 
 Two cases where you should not bother: a harness that is already tuned (you will get a list of skipped files and nothing else), and a monorepo with per-package rule files (nested files stay your job).

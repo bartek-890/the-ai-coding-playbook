@@ -17,6 +17,7 @@ _Appendix A_
 - **/compact …** — summarise, with instructions
 - **/plan** — before anything uncertain
 - **/code-review** — before every commit
+- **/ship** — PR → review → watch CI (v2.1.330+)
 - **Shift+Tab** — cycle permission modes
 - **Ctrl+O** — transcript viewer
 - **Ctrl+G** — edit prompt / plan in $EDITOR
@@ -39,6 +40,14 @@ claude --safe-mode     # no config
 claude -p "…" --output-format json
 ```
 
+### Defaults worth knowing
+
+- **Permission mode** — auto (v2.1.284); `claude -p` starts Manual
+- **Model** — Opus 5.5 on every plan (v2.1.280)
+- **Effort** — medium on Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.2
+- **Window** — 1M tokens; auto-compact ~967K; idle compact after ~1 h
+- **Search** — Glob/Grep absent on macOS/Linux/WSL; Bash `find`/`grep`
+
 ### The scoped prompt
 
 ```
@@ -57,6 +66,8 @@ Plan first.
 - **paths: rules** — no
 - **Nested CLAUDE.md** — no
 - **Skill bodies** — 5K each / 25K total
+- **Skill descriptions** — rebuilt (v2.1.304+)
+- **Plan-mode plan** — re-injected
 - **Chat instructions** — no — put them in a file
 
 ### Which mechanism?
@@ -81,5 +92,5 @@ Plan first.
 
 - **2 failed corrections** — /clear, better prompt
 - **3 failed prompts** — abandon the session
-- **8 Stop-hook blocks** — Claude Code overrides
+- **8 Stop-hook blocks in a row** — Claude Code overrides
 - **3 / 20 classifier blocks** — auto mode falls back

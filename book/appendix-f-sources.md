@@ -18,6 +18,8 @@ Three figures do more work in this book than any others, and they are the ones w
 
 **Claude Platform documentation** — model overview and pricing, prompt caching, batch processing. platform.claude.com/docs
 
+**Added in Edition 2026.11** — Claude Code docs: model configuration, fast mode, costs, prompt caching, permission modes and auto mode (`permission-modes`, `auto-mode-config`), commands and CLI reference, interactive mode, tools reference, context window, sandboxing, `/goal`, agent view, scheduled tasks (`/loop`), parallel agents, worktrees, dynamic workflows, Projects, headless mode, `/code-review`, `/ship` and `/steward`, Code Mode, mods, MCP, hooks, skills, subagents, settings reference, environment variables. code.claude.com/docs. Release-gated facts: Claude Code CHANGELOG, github.com/anthropics/claude-code/blob/main/CHANGELOG.md. Claude Platform: model overviews for Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.2, pricing, refusals and fallback, prompt caching, Opus 5.5 prompting guide. platform.claude.com/docs
+
 **Anthropic Engineering** — _Equipping agents for the real world with Agent Skills_; _Effective context engineering for AI agents_. anthropic.com/engineering
 
 ## Research and measured findings
@@ -78,4 +80,4 @@ Three findings in this book come from working practice rather than a paper, and 
 >
 > **The one thing worth carrying out of all of it:** give the agent a check it can run, and review the evidence rather than the claim. Every other practice in this book is a way of making that cheaper.
 
-The Claude Code Book · Edition 2026.08 · Bartłomiej Krupa · bartlomiejkrupa.dev
+The Claude Code Book · Edition 2026.11 · Bartłomiej Krupa · bartlomiejkrupa.dev

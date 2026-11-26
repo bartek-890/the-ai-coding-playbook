@@ -4,7 +4,7 @@ _IV · Flows · Chapter 18_
 
 The default flow, and the one to reach for when you are not sure which flow applies. It exists to stop Claude solving the wrong problem — which is the most expensive failure mode available, because the code is _good_, it just does the wrong thing.
 
-- **Plan mode** — A permission mode in which Claude reads, searches, and plans but makes no edits until you approve. `Shift+Tab` mid-session, or `claude --permission-mode plan` at startup, or `/plan [task]`.
+- **Plan mode** — A permission mode in which Claude reads, searches, and plans but makes no edits until you approve. `/plan [task]` from the prompt, `claude --permission-mode plan` at startup, or `Shift+Tab` mid-session. Interactive sessions start in auto mode (v2.1.284), so from there the first `Shift+Tab` lands in Manual and plan mode is two presses further (Manual → accept edits → plan). Approving the plan switches you to the mode the approve option names.
 
 ## The four phases
 
@@ -39,11 +39,13 @@ The default flow, and the one to reach for when you are not sure which flow appl
 
 4. **Review, then commit**
 
-   Scan the diff for the four changes most likely to be silently wrong — **file deletions, changed API signatures, new dependencies, schema edits** — then run `/code-review` and commit on green.
+   Scan the diff for the four changes most likely to be silently wrong — **file deletions, changed API signatures, new dependencies, schema edits** — then run `/code-review` and commit on green. `/code-review` hunts correctness bugs and `CLAUDE.md` violations in a fresh subagent; since v2.1.328, on most models, reuse and simplification cleanups live in `/simplify`. For a change a test suite cannot judge, `/verify` builds and runs the app and looks at the result.
 
    ```
    commit with a descriptive message and open a PR
    ```
+
+   To carry it through the pull request, `/ship` (v2.1.330, CLI only) opens the PR, runs `/code-review` on it, then watches the PR from your session and pushes fixes for failing checks and review comments. You still merge it yourself.
 
 ## When to skip the plan
 

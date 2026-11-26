@@ -47,3 +47,7 @@ verbose tool output.
 > **Note — Why the behaviour block sits at the top**
 >
 > Those four rules are the only genuinely universal content in the file — they apply to every task in every repo, which is exactly the test for belonging in an always-loaded surface. Everything below them is project-specific by construction, and everything project-specific should be short.
+
+> **Note — Audit it once it is filled in**
+>
+> Run `/doctor prompt-audit` (v2.1.283+) on the finished file. It flags instructions written for older models, stale paths and commands, and contradictions across your instruction files, and changes nothing until you approve. → Ch. 10

@@ -31,11 +31,11 @@ Cap the pipeline at roughly five: enough to catch regressions, few enough that h
 | Custom #2 | Plan adherence or a rubric score | Drift from the agreed steps |
 | Generic | Tool correctness | Wrong tool, wrong args, invented APIs |
 | Generic | Faithfulness / citation (if RAG) | Answer ignores retrieved context |
-| Generic | **Cost proxy** — tokens or $ per _successful_ task | Quality held while spend exploded — or the reverse |
+| Generic | **Cost proxy** — tokens or $ per _successful_ task | Quality held while spend exploded — or the reverse. In a scripted run, `claude -p --output-format json` returns `total_cost_usd` and a per-model breakdown |
 
 > **Key — You already run one of these**
 >
-> Claude Code’s `/goal` evaluator _is_ custom metric #1 in production: a separate model reading a completion condition and a transcript, returning a verdict. That is LLM-as-a-judge with a hard gate, not a vibes check — and the same property that makes a good `/goal` condition makes a good eval. → Ch. 22
+> Claude Code’s `/goal` evaluator _is_ custom metric #1 in production: a separate model reading a completion condition and a transcript, returning one of three verdicts — not yet met, met, or impossible — each with a reason. That is LLM-as-a-judge with a hard gate, not a vibes check — and the same property that makes a good `/goal` condition makes a good eval. → Ch. 22
 
 ## A judge prompt you can run today
 

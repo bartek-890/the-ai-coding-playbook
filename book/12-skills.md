@@ -16,6 +16,7 @@ A skill is a markdown file whose body loads _only when used_. That single proper
 | Personal | `~/.claude/skills/<name>/SKILL.md` | All your projects |
 | Project | `.claude/skills/<name>/SKILL.md` | This project only |
 | Plugin | `<plugin>/skills/<name>/SKILL.md` | Where the plugin is enabled |
+| MCP server | Served by the server — appears as `/<server>:<skill>` | Where the server is connected. Beta, v2.1.332 — see below |
 
 On a name clash, enterprise overrides personal overrides project, and any of them overrides a bundled skill. Nested `.claude/skills/` directories below your working directory load when Claude touches files there; a clashing nested skill appears under a directory-qualified name like `/apps/web:deploy`, and Claude picks the variant matching the files it is working on. Claude Code watches these directories and picks up edits within seconds — **no restart needed.**
 
@@ -51,11 +52,11 @@ All fields are optional; only `description` is genuinely recommended. v2.1.218+ 
 | `when_to_use` | Extra trigger phrases or example requests, appended to the description. Counts toward the 1,536-character listing budget. |
 | `argument-hint` | Autocomplete hint, e.g. `[filename] [format]`. |
 | `arguments` | Named positional arguments for `$name` substitution. |
-| `disable-model-invocation` | `true` keeps Claude from loading it autonomously **and keeps it out of the startup index**. Use for anything with side effects. |
+| `disable-model-invocation` | `true` keeps Claude from loading it autonomously **and keeps it out of the startup index**. It also stops the skill being preloaded into subagents and running when a session-scoped scheduled task fires with it as the prompt. Use for anything with side effects. |
 | `user-invocable` | `false` hides it from the `/` menu — background knowledge you don’t invoke by hand. |
 | `allowed-tools` | Tools usable without a permission prompt during the invoking turn. The grant clears on your next message. |
 | `disallowed-tools` | Tools removed while the skill is active — e.g. `AskUserQuestion` for a background loop. |
-| `model` · `effort` | Override for the rest of the current turn; not saved to settings. |
+| `model` · `effort` | Override for the rest of the current turn; not saved to settings. `model` applies when **you** run the skill with `/name`; when Claude loads it on its own the session keeps its model v2.1.330. With `context: fork`, `effort` sets the forked subagent’s level. |
 | `context: fork` + `agent` | Run the skill’s content **as a subagent’s prompt**, in an isolated window. → Ch. 13 |
 | `background` | With `context: fork`, `false` makes the invoking turn wait for the result. v2.1.218+ forked skills run in the background by default. |
 | `paths` | Globs limiting when the skill auto-activates. |
@@ -120,11 +121,31 @@ There is **no separate sub-skill primitive.** A `SKILL.md` body is just instruct
 
 Reach for orchestration when a workflow has clean reusable stages (fetch → draft → polish → review) that are each useful standalone. Pick a **subagent** when a stage benefits from a fresh context — a review pass gains from not being close to the draft. Pick an **inline Skill call** when it benefits from continuity — a rewrite pass gains from the context already built up.
 
+## Skills from MCP servers (beta)
+
+An MCP server can now ship skills alongside its tools — the instructions for using the tools travel with them. A skill’s name is `<server>:<skill>`, so a `pdf` skill on a server named `docs` is `/docs:pdf report.pdf`; connectors and plugin servers add a prefix (`claude_ai_Docs:pdf`, `plugin_my-plugin_docs:pdf`). Find them with `/` or `/skills`. v2.1.332; the docs state v2.1.331+.
+
+- **Availability.** On with `/login` on Pro, Max, and Ultra; off on Team and Enterprise until the organisation enables Skills over MCP (connectors) or sets `disableDirectMcpSkills: false` in managed settings (other servers). Terminal and local Desktop sessions only — not cloud sessions, `claude -p`, GitHub Actions, the Agent SDK, cloud providers, or a custom `ANTHROPIC_BASE_URL`. The model must be Fable, or Opus 4.8, Sonnet 5, Haiku 5.5 or later.
+- **What does not apply.** The server supplies the content, so Claude Code ignores `allowed-tools`, `disallowed-tools`, `hooks`, `model`, `effort`, `context`, `agent`, `background`, `shell`, and `paths`; `!` commands do not run, `@` references are not attached, and `${CLAUDE_PROJECT_DIR}` is not substituted. Supporting files arrive as MCP resources.
+- **Approval.** In auto mode the classifier decides whether a skill loads, without reading it. In Manual or `acceptEdits` you get a prompt; **Allow this version** skips it until the server changes the skill. Rules are per server: `Skill(mcp__docs__*)` in `deny`, `ask`, or `allow` (`allow` only in user or managed settings, for servers you added yourself), or `Skill(docs:pdf)` for one skill.
+
+> **Warning — A server can edit your instructions**
+>
+> A skill can direct Claude to run code, and the server can change it at any time. Anthropic scans skills only from some connectors, not from servers you add with `claude mcp add`. Add only servers you would trust with a `CLAUDE.md`.
+
+## Gating, hiding, and pruning skills
+
+- **`skillOverrides`** (settings, or the `/skills` menu — `Space` cycles, `Esc` saves to `settings.local.json`) sets a skill per name without editing its `SKILL.md`: `"on"`, `"name-only"` (name listed, description hidden), `"user-invocable-only"` (hidden from Claude, still in `/`), `"off"`. It does not apply to plugin skills — use `/plugin`.
+- **`/skill-doctor`** v2.1.261+ shows what each skill costs in context and how often it is used, and flags the ones never invoked. Every listed skill taxes every turn; prune the expensive, unused ones first.
+- **`/reload-skills`** re-scans the skill directories if a new skill does not show up; after compaction it re-sends the full skill list to Claude.
+- **`!` commands bypass `PreToolUse`.** A skill’s inline `` !`command` `` runs while the skill renders, so a guard you wrote as a `PreToolUse` hook never sees it. Add the same script to the **`PreSkillShellCommand`** hook (v2.1.332; matcher `Bash|PowerShell`, `onFailure: "block"`). It can only refuse — never approve or rewrite. A failed injected command aborts the whole invocation. `disableSkillShellExecution: true` turns inline shell off for user, project, plugin, and added-directory skills. → Ch. 14
+
 ## Troubleshooting
 
 | Symptom | Cause and fix |
 | --- | --- |
 | Skill never triggers | The description doesn’t name the trigger. Add `when_to_use` with the phrases you actually type. |
 | Skill triggers too often | The description is too broad. Narrow it, or set `disable-model-invocation: true` and invoke by hand. |
-| Description appears cut short | You are over the 1,536-character listing budget across `description` + `when_to_use`. |
+| Description appears cut short | You are over the 1,536-character listing budget across `description` + `when_to_use`. `/doctor` estimates the listing’s cost; `skillListingBudgetFraction` raises the budget, `skillOverrides` frees it. |
 | Skill missing in a cloud session | Cloud and Cowork sessions do not read `~/.claude/skills/`. Commit it to the repo’s `.claude/skills/` or ship it in a plugin. |
+| A skill named `computer-use` stops loading | On a Mac with computer use enabled the name is reserved v2.1.332; a startup notice asks you to rename yours. |

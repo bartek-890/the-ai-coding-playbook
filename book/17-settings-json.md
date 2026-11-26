@@ -21,9 +21,14 @@ Permission rules **merge** across scopes rather than overriding; the precedence 
 | Key | Effect |
 | --- | --- |
 | `model` · `fallbackModel` | Active model; chain of fallbacks when the primary is overloaded |
-| `effortLevel` | `low` · `medium` · `high` · `xhigh` (not `max`) |
-| `fastMode` | Opus-tier latency mode. → Ch. 28 |
+| `effortLevel` | `low` · `medium` · `high` · `xhigh` (not `max`) — the default for models with no saved level of their own. Since v2.1.251 `/effort` saves a level per model under `modelSettings` instead, and a model’s saved level beats this key |
+| `fastMode` | Faster, costlier output on supported models (Opus 5.5, Fable 5.2…). → Ch. 28 |
 | `permissions.allow` / `.deny` / `.ask` | The `ToolName(specifier)` rules. → Ch. 04 |
+| `permissions.defaultMode` | Starting permission mode. With none set, terminal and VS Code sessions start in **auto**; `claude -p` and the SDK start in Manual. An `auto` or `bypassPermissions` written in a _project_ file is ignored. → Ch. 04 |
+| `permissions.blockWritesOutsideWorkingDirectories` v2.1.314 | `Write`, `Edit`, and `NotebookEdit` refuse paths outside the working directories in **every** mode, `bypassPermissions` included. Any file can turn it on and none can lift it. Does not limit shell commands, MCP tools, or hook scripts — that is `sandbox.*` |
+| `permissions.denyInsteadOfPrompting` v2.1.319 | A call that would wait on a permission prompt is denied and the turn continues — for sessions nobody is watching. User, managed, or `--settings` only; a repo cannot set it. Calls an allow rule, the mode, or the auto classifier approves still go ahead |
+| `autoMode` (user or managed only) | Your own prose rules for the auto-mode classifier: `environment`, `allow`, `soft_deny`, `hard_deny`, plus `classifyAllShell`. Include `"$defaults"` in every array or you replace the built-ins. Ignored in project settings |
+| `disableAutoMode` | `"disable"` removes auto from the mode cycle and the default |
 | `sandbox.*` | OS isolation, credentials, network allowlists. → Ch. 05 |
 | `hooks` | Lifecycle hooks. → Ch. 14 |
 | `env` | Environment variables applied to every session |
@@ -31,6 +36,10 @@ Permission rules **merge** across scopes rather than overriding; the precedence 
 | `claudeMd` (managed only) | Org-wide instructions inline, without deploying a separate file |
 | `claudeMdExcludes` | Glob patterns of memory files to skip. Arrays merge across layers. |
 | `cleanupPeriodDays` | Session, checkpoint, and subagent-transcript retention. Default 30. |
+| `idleCompaction` | Compact a 200K+ conversation you have stepped away from, about an hour in, before the 1-hour prompt cache expires. Default `true`; `false` turns it off |
+| `skillOverrides` · `disableSkillShellExecution` | Hide or collapse a skill without editing it; stop skills and commands running inline shell. → Ch. 12 |
+| `worktree.symlinkDirectories` | Symlink large directories (`node_modules`, `.cache`) into each worktree instead of copying them |
+| `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles` | The **Project instructions** setting: which of `CLAUDE.md` and `AGENTS.md` load. → Ch. 10 |
 | `includeCoAuthoredBy` · `attribution` | Commit and PR message customisation |
 | `enableAllProjectMcpServers` | Auto-approve project-scoped MCP servers |
 | `disabledMcpjsonServers` · `enabledMcpjsonServers` | Block or allowlist specific servers |
@@ -55,6 +64,9 @@ Permission rules **merge** across scopes rather than overriding; the precedence 
 | `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` | Scrub provider credentials from **every** subprocess environment |
 | `CLAUDE_CODE_NEW_INIT` | Interactive multi-phase `/init` |
 | `DISABLE_AUTOUPDATER` · `CLAUDE_CODE_ENABLE_TELEMETRY` | Updates and telemetry |
+| `CLAUDE_CODE_SUBAGENT_EFFORT` | Effort subagents run at when nothing else names one (v2.1.316). → Ch. 13 |
+| `CLAUDE_CODE_DISABLE_ULTRATHINK` | Turn the `ultrathink` keyword off (v2.1.316) |
+| `ENABLE_TOOL_SEARCH` | MCP tool deferral: unset or `true` defers all, `auto:N` defers past N% of the window, `false` loads everything. → Ch. 15 |
 
 ## A working project settings file
 
@@ -65,7 +77,8 @@ Permission rules **merge** across scopes rather than overriding; the precedence 
     "allow": ["Bash(pnpm test *)", "Bash(pnpm lint)", "Bash(git status)"],
     "ask":   ["Bash(git push *)"],
     "deny":  ["Read(./.env*)", "Read(~/.ssh/**)", "Read(~/.aws/**)",
-              "Edit(migrations/**)"]
+              "Edit(migrations/**)"],
+    "blockWritesOutsideWorkingDirectories": true
   },
   "hooks": {
     "PostToolUse": [{
@@ -110,7 +123,7 @@ The fields worth reaching for:
 | `model.display_name` | Which model is actually running — useful after a fallback |
 | `exceeds_200k_tokens` | Fixed 200K threshold flag, regardless of the real window size |
 
-Two `null` cases to guard: `current_usage` is null before the first API call and again after `/compact` until the next one, and the percentage fields can be null early in a session. Hence `// 0` in the example. `subagentStatusLine` configures the same thing for subagents; `/statusline` asks Claude to write or remove one for you.
+Two `null` cases to guard: `current_usage` is null before the first API call and again after `/compact` until the next one, and the percentage fields can be null early in a session. Hence `// 0` in the example. `/statusline` asks Claude to write or remove one for you. The `subagentStatusLine` setting is gone (v2.1.323): subagent rows always use the default look, and a settings file that still holds the key loads without error.
 
 > **Key — The three settings that change behaviour with zero discipline**
 >
@@ -120,4 +133,4 @@ Two `null` cases to guard: `current_usage` is null before the first API call and
 
 > **Note — When a setting seems to do nothing**
 >
-> Run `/status` for active setting sources, then `/doctor`, then start with `--safe-mode` to confirm your configuration is the cause. Most settings reload live; `model` and `outputStyle` require a restart.
+> Run `/status` for active setting sources, then `/doctor` — or `claude doctor` in your shell for the entries Claude Code rejected — then start with `--safe-mode` to confirm your configuration is the cause. Most settings reload live; `model` and `outputStyle` require a restart. `/permissions` now refuses a rule that would be skipped at the next start, such as `rm -rf` with no tool name (v2.1.332).

@@ -2,7 +2,7 @@
 
 _III · Harness · Chapter 16_
 
-A plugin is the distribution format for everything else in this part. Skills, subagents, hooks, MCP servers, LSP servers, and background monitors, bundled into one installable, versioned directory. Nothing in a plugin is a new capability — the value is that a teammate installs it with one command instead of copying six files into the right places.
+A plugin is the distribution format for everything else in this part. Skills, subagents, hooks, MCP servers, LSP servers, and background monitors, bundled into one installable, versioned directory. Nothing in a plugin is a new capability, with one exception — a **mod** (below) — and the value is that a teammate installs it with one command instead of copying six files into the right places.
 
 ## Standalone or plugin?
 
@@ -46,6 +46,8 @@ The manifest is four fields, of which one matters most:
 
 **Set `version`.** Without it, a git-distributed plugin uses the commit SHA, so every commit you push counts as a release for everyone who installed it.
 
+Two manifest fields guard the install: `engines["claude-code"]` (v2.1.323) names the Claude Code version range a plugin supports — outside it, the plugin is not installed, updated, or loaded, and update picks the newest version that fits; `optionalDependencies` (v2.1.331) lists plugins that install alongside yours but can be disabled or uninstalled on their own. A plugin’s own `agent` setting is deprecated (v2.1.323): it still applies and warns at startup, in `claude plugin list`, and in `claude plugin validate`.
+
 ## Develop and test
 
 ```
@@ -77,6 +79,23 @@ claude plugin validate
 
 The highest-value install for most people is a **code-intelligence (LSP) plugin** for their language. It gives Claude real symbol navigation and automatic error detection after edits, which is categorically better than grep for “who calls this?” and removes a whole class of hallucinated API usage.
 
+Before you install, the **Marketplaces** tab in `/plugin` shows a context-cost estimate for plugins in Anthropic’s official marketplace. Every enabled plugin puts its skill, agent, and command descriptions in context on every turn, even in sessions that never use it; the **Installed** tab’s **Not used recently** group lists candidates, and `claude plugin disable` stops one without uninstalling it.
+
+## Mods: plugins that run inside Claude Code
+
+A **mod** (v2.1.287; on by default) is a plugin whose `hooks/` directory carries a hooks module — JavaScript or TypeScript functions Claude Code calls in its own process when an event happens: a tool call, a submitted prompt, a part of the interface being drawn. Where a settings hook shells out, a mod can **draw** (a pane beside the transcript, a band above the prompt, a restyled spinner), add a `/command` that runs with no Claude turn, and rewrite or answer a tool call or request. Ask Claude to write one (`/plugin-authoring`) or install one like any plugin; some Claude Code features, such as `/diff` and automatic charts under MCP results (`cc-plugin-easel`, v2.1.321), are mods built in.
+
+| Pick… | …when |
+| --- | --- |
+| A **settings hook** | You want to block, allow, or log an event with a script you already have |
+| A **skill** | You keep pasting the same instructions into chat |
+| An **MCP server** | Claude needs to reach an external system |
+| A **mod** | You want a pane, a command, or to rewrite an event from inside Claude Code |
+
+> **Warning — Mods are not sandboxed**
+>
+> A mod runs with your permissions: it can read your files and environment variables, see every prompt and tool call, spend your usage, and — unless the built-in guard `cc-plugin-sec-default` is loaded — approve tool calls that your `deny` rules and `PreToolUse` hooks would have stopped. Anything a mod starts runs outside `/sandbox`. Before installing one, run `claude plugin validate ./some-mod`: its `hooks:` and `calls:` lines list the events it handles and what it asks Claude Code to do. Turn mods off per mod in `/plugin`, per session with `--safe-mode`, or everywhere with `"disableAllHooks": true` (which stops your settings hooks and status line too); administrators can set `allowManagedModsOnly`.
+
 ## Governance
 
 | Setting | Effect |
@@ -84,6 +103,7 @@ The highest-value install for most people is a **code-intelligence (LSP) plugin*
 | `strictKnownMarketplaces` (managed) | Restrict which marketplace sources are allowed |
 | `disableSideloadFlags` (managed) | Reject `--plugin-dir` / `--plugin-url` / MCP override flags |
 | Force-enable / force-disable | Managed settings win — `--plugin-dir` cannot override them |
+| `extraKnownMarketplaces` (managed) | On or after 2026-11-30, declared marketplaces auto-update by default (announced in v2.1.331); opt one out with `"autoUpdate": false` on its entry |
 
 > **Warning — A plugin is code you are running**
 >

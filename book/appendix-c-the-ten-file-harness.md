@@ -7,7 +7,7 @@ The minimal harness that changes agent behaviour mechanically. Every file exists
 | File | What it changes |
 | --- | --- |
 | `CLAUDE.md` | 60-line skeleton: four behavioural rules plus placeholders → Ch. 10 |
-| `AGENTS.md` | Points every non-Claude tool at `CLAUDE.md` — one rule file, not two drifting copies |
+| `AGENTS.md` | Points every non-Claude tool at `CLAUDE.md` — one rule file, not two drifting copies. Claude Code reads `CLAUDE.md` and skips `AGENTS.md` when both exist (v2.1.277+), so the pointer never loads twice |
 | `docs/start.md` | Idea-to-shipped procedure: plan with the strongest model, build per feature, refactor on a schedule, audit with a fix loop |
 | `docs/agent-checklist.md` | Human pre-flight and recovery: scoped prompt, session hygiene, diff review, the debug ladder → Ch. 21 |
 | `.claude/skills/verify-done/` | Demands proof before “done”: a named check, its real exit code, an honest report if it fails |

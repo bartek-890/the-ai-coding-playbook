@@ -10,7 +10,7 @@ If you memorise five keys, memorise these: `Esc` interrupts, `Esc Esc` rewinds, 
 | --- | --- |
 | `Esc` | Interrupts Claude mid-response or mid-tool-call so you can redirect. **Work done so far is kept.** If a dialog is open, `Esc` closes the dialog instead. |
 | `Esc` `Esc` | Input has text → clears the draft (saved to history; press `Up` to recall). Input empty → opens the **rewind menu**. |
-| `Ctrl+C` | Interrupts a running operation. If nothing is running: first press clears input, second press exits. |
+| `Ctrl+C` | Interrupts a running operation. If nothing is running: first press clears input, second press exits. `Up` brings a cleared draft back v2.1.288+; the last ten are kept for the session v2.1.292+. |
 | `Ctrl+D` | Exit. First press shows a confirmation hint; a second within 800 ms exits. With text in the prompt, deletes the character after the cursor instead. |
 | `Ctrl+X Ctrl+K` | Stop **all** running background subagents in this session. Press twice within 3 seconds to confirm. |
 | `Ctrl+L` | Redraw the screen. Recovers a garbled or half-blank terminal without losing history. |
@@ -20,15 +20,17 @@ If you memorise five keys, memorise these: `Esc` interrupts, `Esc Esc` rewinds, 
 
 | Key | Behaviour |
 | --- | --- |
-| `Shift+Tab` | Cycle permission modes: `default` → `acceptEdits` → `plan`, plus any you have enabled. On Windows without VT input mode, `Alt+M`. |
+| `Shift+Tab` | Cycle permission modes: `default` (Manual) → `acceptEdits` → `plan`, then `bypassPermissions` and `auto` where enabled. From the usual `auto` start the first press lands on Manual. On a permission prompt it allows the action for the rest of the session; at the plan-approval prompt it approves the plan. On Windows without VT input mode, `Alt+M`. |
 | `Ctrl+O` | Toggle the **transcript viewer**: detailed tool usage, timestamps, the model used per message, and expanded MCP calls that otherwise collapse to “Called slack 3 times”. |
 | `Ctrl+T` | Toggle Claude’s to-do checklist in the status area. (Inside the `/theme` picker, `Ctrl+T` toggles syntax highlighting instead.) |
 | `Ctrl+B` | Background running tasks — Bash commands and agents. tmux users press twice. |
-| `Ctrl+R` | Reverse-search input history. |
+| `Ctrl+R` | Reverse-search input history. In fullscreen rendering it opens a search dialog, where `Ctrl+S` cycles the scope: this session, this project, all projects. |
 | `Ctrl+S` | Stash the current prompt and clear it. Press again on an empty prompt to restore text, cursor position, and pasted content. |
+| `Ctrl+Enter` / `Ctrl+X Ctrl+S` | Send your queued messages now, together with the current draft v2.1.275+. Messages typed while Claude works queue; `Up` takes them back. |
+| `←` on an empty prompt | Background this session and open **agent view** (`claude agents`). `leftArrowOpensAgents: false` turns it off. |
 | `Ctrl+G` / `Ctrl+X Ctrl+E` | Open the prompt — or the proposed plan — in `$EDITOR`. **The single most underused key in Claude Code.** |
 | `Option+P` / `Alt+P` | Switch model without clearing your prompt. |
-| `Option+T` / `Alt+T` | Toggle extended thinking. No effect on Fable 5, which always thinks. |
+| `Option+T` / `Alt+T` | Toggle extended thinking. No effect on Opus 5.5, Sonnet 5.5, Haiku 5.5, or the Fable models, which always think. |
 | `Option+O` / `Alt+O` | Toggle fast mode. → Ch. 28 |
 | `Ctrl+V` / `Cmd+V` / `Alt+V` | Paste an image from the clipboard. Inserts an `[Image #N]` chip you can reference positionally. |
 | `?` on empty input | Toggle the shortcut help panel. |
@@ -39,7 +41,8 @@ If you memorise five keys, memorise these: `Esc` interrupts, `Esc Esc` rewinds, 
 | --- | --- |
 | `Ctrl+A` / `Ctrl+E` | Start / end of the current logical line |
 | `Ctrl+K` / `Ctrl+U` | Delete to end of line / to line start — both store the text for pasting |
-| `Ctrl+W` | Delete previous word (also `Option+Delete` on macOS, `Ctrl+Backspace` on Windows) |
+| `Ctrl+W` | Delete back to the previous whitespace — one press removes a whole path or `--flag=value`. `Option+Delete` (macOS) or `Ctrl+Backspace` (Windows) deletes just one word. |
+| `Alt+D` | Delete to end of word — stores the text for pasting |
 | `Ctrl+Y`, then `Alt+Y` | Paste deleted text; `Alt+Y` cycles the paste history |
 | `Alt+B` / `Alt+F` | Move back / forward one word |
 | `Ctrl+_` | Undo the last input edit, restoring text and cursor position |
@@ -55,7 +58,7 @@ If you memorise five keys, memorise these: `Esc` interrupts, `Esc Esc` rewinds, 
 | --- | --- |
 | `\` then `Enter` | **Everywhere.** The portable answer; use it if you only learn one. |
 | `Ctrl+J` | Any terminal, no configuration |
-| `Shift+Enter` | Native in iTerm2, WezTerm, Ghostty, Kitty, Warp, Apple Terminal, Windows Terminal. For VS Code, Cursor, Alacritty, and Zed run `/terminal-setup` to install the binding. |
+| `Shift+Enter` | Native in iTerm2, WezTerm, Ghostty, Kitty, Warp, Windows Terminal 1.25+. For VS Code, Cursor, Alacritty, and Zed run `/terminal-setup` to install the binding. |
 | `Option+Enter` | macOS, after enabling Option as Meta |
 | Paste directly | Code blocks and logs paste as-is |
 
@@ -72,4 +75,4 @@ If you memorise five keys, memorise these: `Esc` interrupts, `Esc Esc` rewinds, 
 
 > **Key — Vim mode exists**
 >
-> Set `editorMode: "vim"` in settings, or `/config` → **Editor mode**. The old `/vim` toggle was removed in v2.1.92. You get NORMAL and INSERT modes with the expected navigation (`h j k l`, `w b e`, `0 $ ^`, `gg G`), editing (`x d c y p`, `dd`, `D C`, `. u`), text objects (`iw`, `aw`, `i"`, `ib`), and visual mode. INSERT-mode key sequences are remappable. Worth it only if vim is already muscle memory.
+> Set `editorMode: "vim"` in settings, or `/config` → **Editor mode**. The old `/vim` toggle was removed in v2.1.92. You get NORMAL and INSERT modes with the expected navigation (`h j k l`, `w b e`, `0 $ ^`, `gg G`), editing (`x d c y p`, `dd`, `D C`, `. u`), text objects (`iw`, `aw`, `i"`, `i(`), and visual mode. INSERT-mode key sequences are remappable (`vimInsertModeRemaps`, user settings only). Worth it only if vim is already muscle memory.

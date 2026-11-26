@@ -28,7 +28,7 @@ A question about your codebase may only gather. A refactor cycles all three repe
 
 > **Note — One nuance that has changed under you**
 >
-> Giving Claude a check is not the same as _instructing_ it to verify. Opus 5 verifies its own work without being told. Anthropic’s guidance is now to **remove** the boilerplate you carried over from earlier models — “include a final verification step”, “use a subagent to verify”. On Opus 5 those lines cause over-verification. The check itself still earns its place: a command that returns pass or fail is what closes the loop. The instruction to go looking for one is what has become redundant. → Ch. 27
+> Giving Claude a check is not the same as _instructing_ it to verify. Opus 5 verifies its own work without being told, and Anthropic’s model docs say the same of the Fable models (“skip the verification reminders”). Anthropic’s guidance is now to **remove** the boilerplate you carried over from earlier models — “include a final verification step”, “use a subagent to verify”. On Opus 5 those lines cause over-verification. The check itself still earns its place: a command that returns pass or fail is what closes the loop. The instruction to go looking for one is what has become redundant. → Ch. 27
 
 ## Four ways to attach the check
 
@@ -43,7 +43,7 @@ They differ in how much setup they take and how hard they gate the stop.
 
 > **Note — Stop hooks have a ceiling**
 >
-> Claude Code overrides a Stop hook and ends the turn after **8 consecutive blocks**. A check that can never pass will not trap the session forever — but it will burn eight turns finding that out. Make the check achievable.
+> Claude Code overrides a Stop hook and ends the turn after **eight blocks in a row** with no tool call between them (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` raises the cap). A check that can never pass will not trap the session forever — but it will burn eight turns finding that out. Make the check achievable.
 
 ## Show the evidence, don’t assert success
 

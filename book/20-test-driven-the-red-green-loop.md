@@ -71,7 +71,7 @@ Two ways to stop relying on remembering:
 }
 ```
 
-Exit `2` blocks the turn from ending and hands stderr to Claude as the reason. Remember the ceiling: Claude Code overrides after **8 consecutive blocks**.
+Exit `2` blocks the turn from ending and hands stderr to Claude as the reason. Remember the ceiling: Claude Code overrides after **8 consecutive blocks** with no tool call between them; `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` raises it. Option A is a model judging the transcript, so name the test command in the condition and let it hit `exit 0`; Option B is a script, so it cannot be talked into “looks done”. → Ch. 22
 
 ## Related habits worth the same discipline
 

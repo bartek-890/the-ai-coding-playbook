@@ -19,7 +19,7 @@ Every prompt you send creates a checkpoint. Claude Code keeps snapshots for the 
 
 | Tracked | Not tracked |
 | --- | --- |
-| Edits made through Claude’s file editing tools | **Files modified by Bash commands** — `rm`, `mv`, `cp` |
+| Edits made through Claude’s file editing tools | **Files only Bash commands touched** — `rm`, `mv`, `cp`. (A file Claude already edited does get later Bash changes undone.) |
 | Foreground forked-skill edits | **Subagent edits**, including background `/code-review --fix` |
 | Files touched in _this_ session | Manual edits you made outside Claude Code, or from another session |
 | Regular files | **Symlinked and hard-linked paths** — skipped with a warning v2.1.216+ |
@@ -39,6 +39,8 @@ Every prompt you send creates a checkpoint. Claude Code keeps snapshots for the 
 - **SUMMARIZE UP TO HERE** — Compress everything before; keep recent detail
 
 The code options appear only when the selected checkpoint has tracked file changes. After restoring the conversation, the original prompt is placed back in the input so you can edit and re-send it. v2.1.191+ If you ran `/clear` earlier in the same process, the menu offers a `/resume <session-id> (previous session)` entry at the top — the escape hatch for clearing something you needed.
+
+Rewinding discards a direction. To keep one and try another, `/branch [name]` forks the conversation at this point and leaves the original for `/resume`; `/fork [prompt]` instead copies it into a background session and keeps you where you are.
 
 ## Git habits that make recovery cheap
 

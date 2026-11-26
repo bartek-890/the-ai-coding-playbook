@@ -8,18 +8,20 @@ The more permission dialogs you click through, the less you read them. Two separ
 
 | Mode | Runs without asking | Best for |
 | --- | --- | --- |
-| `default`<br>(shown as “Manual”) | Reads only | Getting started, sensitive work |
+| `default`<br>(shown as “Manual”; `manual` is an accepted alias) | Reads inside the working directory and other no-approval tools, such as starting a subagent | Getting started, sensitive work |
 | `acceptEdits` | Reads, file edits, common filesystem commands (`mkdir`, `touch`, `mv`, `cp`) | Iterating on code you are reviewing |
 | `plan` | Reads, plus classifier-approved commands when auto mode is available | Exploring before changing |
 | `auto` | Everything, with a classifier running background safety checks | Long tasks, prompt fatigue |
-| `dontAsk` | Only pre-approved tools — everything else is refused, not prompted | Locked-down CI and scripts |
+| `dontAsk` | Only pre-approved tools — everything else is refused, not prompted (an installed mod can still approve some calls) | Locked-down CI and scripts |
 | `bypassPermissions` | Everything, no checks | Isolated containers and VMs **only** |
 
-`Shift+Tab` cycles `default` → `acceptEdits` → `plan` mid-session. Not every mode is in the default cycle; `auto` and `bypassPermissions` have to be enabled. At startup, use `--permission-mode <mode>`.
+`Shift+Tab` cycles mid-session. From `auto` the first press lands on `default`; the cycle then runs `default` → `acceptEdits` → `plan`, with `bypassPermissions` and `auto` slotting in after `plan` only where enabled, and `dontAsk` never in it. At startup, use `--permission-mode <mode>`. Two shortcuts into auto without cycling: **Yes, and switch to auto mode** on a Bash prompt (v2.1.247+) and **Yes, and use auto mode** at plan approval.
+
+**Which mode you start in.** Since v2.1.284, interactive terminal and VS Code sessions start in `auto` on every plan and provider when nothing says otherwise; before that it was Pro, Max, Ultra, and Team only. The order is the flag, then `permissions.defaultMode`, then the built-in default. `auto` and `bypassPermissions` written into _project_ settings are ignored — put them in `~/.claude/settings.json`. A model auto mode does not support starts the session in Manual, and managed `permissions.disableAutoMode: "disable"` removes auto for an organisation. `claude -p` and Agent SDK runs with no mode start in Manual (v2.1.302+): whatever nothing pre-approves is denied. Because the default is now a classifier — a model, not a rule — the deny and ask rules below stop being advanced configuration: what must never happen belongs there, or in a hook.
 
 > **Note — Modes set the baseline; rules layer on top**
 >
-> Deny rules and explicit ask rules apply in _every_ mode, including `bypassPermissions`. Allow rules have no effect there, because everything else is already approved. Writes to protected paths — repository state, Claude’s own configuration — are never auto-approved outside bypass mode.
+> Deny rules and explicit ask rules apply in _every_ mode, including `bypassPermissions`. Allow rules have no effect there, because everything else is already approved. Writes to protected paths — repository state, Claude’s own configuration — are never auto-approved outside bypass mode. Recognised `rm`/`rmdir` on critical paths — root, home, a top-level folder, the working folder; widened in v2.1.330 — ask in every mode and are refused where nobody can answer. Two settings tighten every mode: `permissions.blockWritesOutsideWorkingDirectories` (v2.1.314; covers `Write`, `Edit`, `NotebookEdit` — not shell, MCP, or hooks) and `permissions.blockReadsOutsideWorkingDirectories` (v2.1.257).
 
 ## How a tool call is actually resolved
 
@@ -62,12 +64,16 @@ Auto mode is not “yes to everything”. A separate classifier model reviews ea
 - It blocks history-destroying git operations by default: `git reset --hard`, `git checkout -- .`, `git clean -fd`, `git stash drop`.
 - It blocks a recursive forced delete whose target is an unresolved shell variable, because it reads the conversation and never sees command output. Naming the literal path clears it.
 - **Boundaries you state in chat are enforced.** Say “don’t push until I review” and the classifier blocks matching actions even where default rules allow them — until you lift it.
+- **It needs a supported model.** On the Anthropic API: Opus 4.6+, Sonnet 4.6+, Haiku 5.5, and the Fable models; on Bedrock, Agent Platform, and Foundry only Sonnet 5+, Opus 4.7+, Haiku 5.5, and Fable. Otherwise the session starts in Manual.
+- **Who reviews.** On a direct Anthropic API connection the server checks actions inside the session’s own model requests (rolling out since v2.1.271), so there are no separate classifier calls to pay for. Otherwise Claude Code sends its own, by default to Sonnet 5 (`CLAUDE_CODE_AUTO_MODE_MODEL` picks another, v2.1.302+), and on Enterprise, API, and cloud-provider accounts they count as usage. `/status` shows `Auto mode server`.
+- **Teach it your infrastructure.** `autoMode.environment` and `autoMode.allow` in `~/.claude/settings.json` — the classifier ignores project settings — always keeping `"$defaults"` in each list. `/auto-mode-setup` drafts entries from your project and recent sessions; `claude auto-mode defaults` prints the built-in rules.
+- **Broad allow rules are dropped on entry** — `Bash(*)`, `Bash(python*)`, package-manager runs, `Agent` and `Monitor` allows — and restored when you leave. Narrow ones like `Bash(npm test)` stay.
 
 > **Warning — Stated boundaries are not stored as rules**
 >
 > The classifier re-reads them from the transcript on every check, so a boundary can be **lost when compaction removes the message that stated it**. For a hard guarantee, write a `permissions.deny` rule instead of saying it out loud.
 
-**Fallback:** if the classifier blocks 3 times in a row or 20 times total, auto mode pauses and normal prompting resumes. Approving the prompted action resumes auto mode. These thresholds are not configurable. In non-interactive `-p` runs, repeated blocks abort the run — there is no user to fall back to.
+**Fallback:** if the classifier blocks 3 times in a row or 20 times total, auto mode pauses and normal prompting resumes. Approving the prompted action resumes auto mode. These thresholds are not configurable. In non-interactive `-p` runs there is no prompt to fall back to: the blocked action simply does not run and Claude keeps working — the run is not aborted.
 
 ## Sandboxing: the boundary the kernel enforces
 
@@ -83,7 +89,7 @@ Claude Code’s OS-level Bash sandbox — Seatbelt on macOS, bubblewrap on Linux
 
 ## The default that catches people: reads are wide open
 
-Sandbox **write** access defaults to the working directory plus the session temp directory. Sandbox **read** access defaults to nearly the whole machine — including `~/.aws/credentials` and `~/.ssh/`. There is **no built-in credential deny list.** An empty `credentials` block protects nothing.
+Sandbox **write** access defaults to the working directory plus the session temp directory; since v2.1.326 sandboxed commands also lose write access to some sensitive home folders by default, which `sandbox.filesystem.allowWrite` in user or managed settings can re-allow. Sandbox **read** access defaults to nearly the whole machine — including `~/.aws/credentials` and `~/.ssh/`. There is **no built-in credential deny list.** An empty `credentials` block protects nothing.
 
 ```
 {
@@ -109,6 +115,8 @@ Sandbox **write** access defaults to the working directory plus the session temp
   }
 }
 ```
+
+Entries in `credentials` also take `"mode": "mask"` (v2.1.221+, honoured only from user and managed settings), which lets a command use a credential without holding it: the command sees a per-session placeholder, and the sandbox proxy swaps in the real value only on requests to hosts you allow. Use `deny` for what a command must never touch, `mask` for what it has to use. File masking works on Linux and WSL; on macOS it falls back to `deny`.
 
 Set both layers: `sandbox.credentials` closes the hole for Bash and its children; `permissions.deny` closes it for the `Read` tool. Deny entries merge across project, user, and managed scopes, and a lower scope cannot loosen a managed deny.
 

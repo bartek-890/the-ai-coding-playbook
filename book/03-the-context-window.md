@@ -2,7 +2,7 @@
 
 _I · Mechanism · Chapter 03_
 
-Flagship models in Claude Code run up to a **1M-token** window. A bigger window does not fix a cluttered one. Two mechanics explain why nearly every “the agent forgot” complaint is a context problem, not a memory problem.
+Current models in Claude Code — Opus 5.5, Sonnet 5.5, Haiku 5.5, the Fable models — run a native **1M-token** window, and auto-compaction fires at about 967K tokens. A bigger window does not fix a cluttered one. Two mechanics explain why nearly every “the agent forgot” complaint is a context problem, not a memory problem.
 
 - **Context window** — The maximum number of tokens the model can consider at once: system prompt, full conversation history, tool results, and its own replies.
 - **Context engineering** — Deliberately curating what enters that window each turn, instead of trusting a larger window to absorb the clutter.
@@ -39,8 +39,10 @@ As context fills, Claude Code clears older tool outputs first, then summarises t
 | System prompt / output style | **Unchanged** — not part of message history |
 | Project-root `CLAUDE.md`, auto memory | **Re-injected** from disk |
 | Rules with `paths:`, nested `CLAUDE.md` | **Lost** until a matching file is read again |
-| Skill descriptions (startup index) | **Not re-injected** |
+| Skill descriptions (startup index) | **Rebuilt** from your current skills and re-injected (v2.1.304+; earlier builds did not re-inject them) |
 | Invoked skill bodies | **Re-injected** — 5K tokens per skill, 25K total, oldest dropped first |
+| The plan written in plan mode | **Re-injected** from disk |
+| Files read or edited | Up to five re-read, most recently modified first; a file over 5K tokens comes back as a path reference only |
 | Instructions you typed in chat | **Summarised away.** Put persistent rules in a file, not in a message. |
 
 The practical rule follows directly: **if an instruction must survive compaction, it belongs in project-root `CLAUDE.md`** — not in a nested file, not in a path-scoped rule, and certainly not in something you said forty turns ago.
@@ -73,6 +75,12 @@ And a per-compaction one, from the prompt:
 
 Both leave the original messages in the session transcript, so Claude can still reach for detail if needed. Highlight a summarize option with the arrow keys and type instructions inline where the row reads **add context (optional)** to steer what it keeps.
 
+## Compaction you didn’t ask for
+
+Two automatic passes run before the window is full. **Auto-compact** fires near the model’s limit; `/autocompact 500k` (v2.1.221+) moves the trigger earlier, saved per model, and `/autocompact auto` restores the default. **Idle compaction** summarises a conversation of 200K+ tokens that has sat idle for about an hour, just before the one-hour prompt cache expires, so your next message sends a summary instead of reprocessing the whole history. It arrived in the terminal in v2.1.299 and in VS Code and the Desktop Code tab in v2.1.314; you will see a `Compacted while idle` notice.
+
+It only runs on the one-hour cache TTL. Turn it off with `"idleCompaction": false` or the **Idle compaction** row in `/config` (v2.1.302+); lower the token threshold with `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` (floor 100K). The summary is written while you are away, so the rule above applies with extra force: what must survive lives in project-root `CLAUDE.md`.
+
 ## The five moves, ranked
 
 1. **`/clear` between unrelated tasks**
@@ -98,6 +106,10 @@ Both leave the original messages in the session transcript, so Claude can still 
 > **Note — The cheap question escape hatch**
 >
 > `/btw <question>` asks a side question whose answer appears in a dismissible overlay and **never enters conversation history**. Use it for “what does this flag do again?” mid-task instead of spending permanent context on it.
+
+> **Note — Context is less of a hard wall than it was**
+>
+> Anthropic’s best-practices page now lists “manage context aggressively” and “use subagents to protect your context window” among the advice you can stop following: with a 1M window and automatic compaction, running out is rare. Two things stand. `/clear` between tasks still pays, because a focused context gives better answers and costs less; and subagents remain the right tool for parallel work, noisy output, and an independent reviewer — each at the price of extra tokens, so delegate for those reasons rather than to save space.
 
 > **Key — The claim this chapter is making**
 >

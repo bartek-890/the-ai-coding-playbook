@@ -14,7 +14,7 @@ It is worth saying plainly why this part of the book exists at all. Among people
 | Unique per-call input | 1× | No | Trim only if it never enters a cache block |
 | Model output | ~5× input | **Never** | **Cut first.** |
 
-Illustrative arithmetic on Sonnet 5 intro pricing: 300 calls a day through a cached 1,500-token system prompt cost about **$0.09/day** in cache reads. The same 300 calls each padding the answer with 300 tokens of prose cost **$0.90/day** in output. The padding costs ten times the “bloat” everyone tries to optimise.
+Illustrative arithmetic on Sonnet 5.5 pricing ($2 in, $10 out, $0.10 cache read per M tokens): 300 calls a day through a cached 1,500-token system prompt cost about **$0.05/day** in cache reads. The same 300 calls each padding the answer with 300 tokens of prose cost **$0.90/day** in output. The padding costs about twenty times the “bloat” everyone tries to optimise.
 
 ## Prompt caching: the mechanics
 
@@ -24,7 +24,7 @@ A prompt cache is a **prefix match on exact bytes**. Anything that changes above
 | --- | --- |
 | 5-minute cache write | **1.25×** |
 | 1-hour cache write | **2×** — set `"cache_control": {"type":"ephemeral","ttl":"1h"}` |
-| Cache read | **0.1×** — a 90% discount on reused input |
+| Cache read | **0.1×** on most models — **0.05×** on Opus 5.5 and Sonnet 5.5, **0.025×** on Fable 5.2: a 90–97.5% discount on reused input |
 | Batch API | **0.5×** — and it **stacks** with caching |
 
 > **Key — The cache-stable prefix rule**
@@ -32,7 +32,7 @@ A prompt cache is a **prefix match on exact bytes**. Anything that changes above
 > 1. Freeze system prompt + tool schemas **before** the cache marker.
 > 2. Put dynamic fields **after** it.
 > 3. Never rewrite text that already sits inside a cached block mid-session.
-> 4. Verify with `usage.cache_read_input_tokens` on call 2+ of an identical prefix. Zero means the prefix is changing, or shorter than the model minimum — **512 tokens on Opus 5**, 1,024 on Opus 4.8, up to 4,096 elsewhere. Shorter prefixes silently don’t cache, with no error.
+> 4. Verify with `usage.cache_read_input_tokens` on call 2+ of an identical prefix. Zero means the prefix is changing, or shorter than the model minimum — **512 tokens on Fable 5.2, Opus 5.5, Opus 5, Sonnet 5.5 and Haiku 5.5**, 1,024 on Opus 4.8 and Sonnet 5, 2,048 on Opus 4.7, 4,096 on Opus 4.6 and Haiku 4.5. Shorter prefixes silently don’t cache, with no error.
 
 If reads stay at zero: diff the serialised request body between call 1 and call 2. Anything that changed above the marker is the bug. Note also that a prefix you call _once_ pays the write premium with no read to offset it — caching a one-shot prompt makes it more expensive.
 
@@ -66,13 +66,21 @@ Three rules that survive contact with production:
 
 | Lever | Discount | Caveat |
 | --- | --- | --- |
-| **Tier routing** | Up to 10:1 | Requires the work to actually be separable. → Ch. 27 |
-| **Prompt caching** | 90% on reused input | Byte-fragile; needs a stable prefix |
+| **Tier routing** | Up to 80:1 | Requires the work to actually be separable. → Ch. 27 |
+| **Prompt caching** | 90–97.5% on reused input | Byte-fragile; needs a stable prefix |
 | **Batch processing** | 50%, stacks with caching | Latency-tolerant work only |
 | **Output budgets** | Measured up to 80% of tokens | Watch for truncated answers |
 | **Context engineering** | >50% measured on SWE-bench Verified | The one that also improves quality. → Ch. 03 |
 
-Inside Claude Code these are harness decisions, not API parameters. A subagent on Haiku _is_ tier routing. `/clear` between tasks _is_ context engineering. A lean `CLAUDE.md` _is_ a stable prefix. And `/usage` shows where the money actually went, broken down by skill, tool, plugin, and MCP server on paid plans.
+Inside Claude Code these are harness decisions, not API parameters. A subagent on Haiku _is_ tier routing. `/clear` between tasks _is_ context engineering. A lean `CLAUDE.md` _is_ a stable prefix.
+
+## Inside Claude Code: where the money goes
+
+- **Start with `/usage`.** The Session block shows estimated cost at list price (reset by `/clear`, v2.1.211) and a `Prompt cache (main)` line — requests, share of input served from cache, misses with a likely cause such as “tool definitions changed”, expected rebuilds after compaction, and whether the cache is warm (v2.1.251, v2.1.260). On paid plans it also attributes recent usage to skills, subagents, plugins, and individual MCP servers, lists recommendations for any behaviour behind 10% or more of your usage, and shows the heaviest `/loop` tasks (v2.1.242). Press `f` to have Claude Code apply the ones it can (v2.1.305).
+- **Know your cache lifetime.** About an hour on a subscription, five minutes on an API key, a cloud provider, or usage credits; subagents get five. The first message after a longer break re-reads the whole conversation uncached.
+- **Idle compaction** (terminal v2.1.299; VS Code and Desktop v2.1.314) compacts a conversation of 200K+ tokens that has sat idle about an hour on the one-hour cache, shortly before it expires, so the next message sends a summary instead of the whole history. It is on by default; `idleCompaction: false` (or the `/config` row) turns it off, and `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` moves the threshold (floor 100K). It costs tokens while you are away, and it means “after lunch” may resume from a summary.
+- **Idle sessions still spend.** A scheduled task or `/loop` fires on its interval and sends the full context each time; goal evaluations and idle check-ins, subagents, workflow agents, and agent teammates each send their own requests. Agent teams use roughly 7× the tokens of a standard session when teammates run in plan mode. `/compact` is itself a large request, cheapest while the cache is warm.
+- **Keep the prefix quiet.** MCP tool definitions are deferred by default, so only names and server instructions enter context until a tool is used; `/context` shows what is consuming space, and a new server or plugin reload is exactly the kind of prefix change the cache-stable rule warns about.
 
 > **Note — Measure before and after, on one thing**
 >

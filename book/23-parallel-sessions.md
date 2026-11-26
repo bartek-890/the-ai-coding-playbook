@@ -4,20 +4,23 @@ _IV · Flows · Chapter 23_
 
 Everything so far assumes one human, one Claude, one conversation. Claude Code scales horizontally, and the payoff is not only throughput: **a fresh context reviews better than the context that wrote the code**, because it is not biased toward the reasoning that produced it.
 
-## Four ways to run in parallel
+## Ways to run in parallel
 
 | Approach | What it gives you | Coordination cost |
 | --- | --- | --- |
 | **Git worktrees** | Separate CLI sessions in isolated checkouts so edits cannot collide | You coordinate |
+| **Agent view** (`claude agents`, research preview) | One screen to dispatch background sessions, see which need you, and peek or attach; each session moves into its own worktree before it edits | You dispatch; it tracks |
 | Desktop app sessions | Multiple local sessions managed visually, each in its own worktree | You coordinate, visually |
 | Claude Code on the web | Anthropic-managed isolated VMs | You coordinate; no local setup |
-| Agent teams | Automated coordination with shared tasks, messaging, and a team lead | Claude coordinates |
+| Agent teams | A team lead, shared tasks, and messaging between sessions. Experimental, off by default; each teammate runs its own context window | Claude coordinates |
+| Dynamic workflows (`/workflows`) | A script Claude writes and a runtime executes: dozens to hundreds of subagents, results cross-checked, rerunnable. `/deep-research` is the bundled one | The script coordinates |
+| Projects (claude.ai/code, public beta on Pro, Max, Ultra) | One conversation that starts parallel cloud threads, shares repo instructions and memory, and keeps running with your laptop closed | Claude coordinates; not on Team or Enterprise |
 
 ## Worktrees: the mechanical foundation
 
 ```
 # Claude Code can do it for you
-claude --worktree
+claude -w oauth
 
 # or by hand, one checkout per workstream
 git worktree add ../proj-oauth   -b feat/oauth
@@ -28,7 +31,7 @@ cd ../proj-oauth   && claude --name oauth
 cd ../proj-cleanup && claude --name cleanup
 ```
 
-Each session has its own working tree, its own branch, and its own context. They cannot overwrite each other’s edits, which is the failure that makes naive parallel sessions worse than serial ones. A subagent can also take `isolation: worktree` in frontmatter to get the same guarantee automatically. → Ch. 13
+Each session has its own working tree, its own branch (`worktree-<name>`), and its own context. They cannot overwrite each other’s edits, which is the failure that makes naive parallel sessions worse than serial ones. A fresh worktree has no gitignored files: list `.env` and the like in a `.worktreeinclude` at the repo root and Claude Code copies them into every worktree it creates (use `worktree.symlinkDirectories` for big directories, not the include file). A subagent can also take `isolation: worktree` in frontmatter to get the same guarantee automatically. → Ch. 13
 
 > **Note — Name your sessions**
 >
@@ -72,7 +75,7 @@ Report gaps, not style preferences. Flag only what affects correctness
 or the stated requirements.
 ```
 
-Or just run the bundled skill: `/code-review` reviews the current diff in a fresh subagent and returns findings; `--fix` applies them.
+Or just run the bundled skill: `/code-review` reviews your branch’s changes for correctness bugs in a background subagent that never saw your conversation, and returns findings; `--fix` applies them, `--comment` posts them on the PR. Cleanup is the separate `/simplify`. `/code-review ultra` runs the deeper cloud review.
 
 ## What the second pass actually returns
 
@@ -114,11 +117,14 @@ correctness, concurrency, data durability, and injection over style.
 
 | Command | Effect |
 | --- | --- |
-| `claude --bg "…"` · `/background` | Start detached and return immediately |
-| `claude agents` | Agent view — monitor every parallel background session in one place |
+| `claude --bg "…"` · `/background` (`/bg`, or `←` on an empty prompt) | Start detached and return immediately, or detach the current session |
+| `claude agents` | Agent view — every background session grouped by state (working, needs input, done), with a peek panel (`Space`) and PR status on the row |
+| `/fork [prompt]` | Copy this conversation into a new background session and keep working here; the copy makes its edits in a worktree of its own |
 | `claude attach <id>` | Attach to a background session in the terminal |
 | `claude logs <id>` | Recent output without attaching |
 | `claude stop` · `respawn` · `rm` | Stop, restart with conversation intact, or remove from the list |
+
+Each background session draws on your plan independently, and a dispatched one keeps running with the terminal closed. Parallel runs multiply tokens: subagents, workflow agents, and agent teammates each send their own requests, and `/usage` shows the split. → Ch. 29
 
 > **Warning — Parallelism multiplies mistakes as readily as output**
 >

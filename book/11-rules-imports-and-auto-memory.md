@@ -41,6 +41,8 @@ ln -s ~/shared-claude-rules            .claude/rules/shared
 ln -s ~/company-standards/security.md  .claude/rules/security.md
 ```
 
+A symlink whose target resolves outside the working directory is treated like an external import: the linked rules stay off until you approve external imports for the project (one dialog, at the start of an interactive session), and after that only the linked rules **without** `paths:` load. Files under `~/.claude/rules/` skip the dialog. Links to network paths (UNC shares, `/net`, `/Network`) never load.
+
 ## Imports: `@path/to/file`
 
 Both relative and absolute paths work; relative resolves against the file containing the import, not the working directory. Imports recurse to a maximum depth of **four hops**. Parsing skips code spans and fenced blocks, so `` `@README` `` in backticks stays literal while `@README` outside them imports the file.
@@ -111,9 +113,8 @@ Claude Sonnet 5, Claude Code 2.1.220, 2026-07-30, n=3 per cell, $5.71 across 30 
 Reliable under normal pressure is not the same as worth leaving unread. The folder holds whatever Claude concluded, including conclusions that were wrong or have since expired, and it shapes every session either way.
 
 ```
-/memory       # browse and open memory files; also opens the folder
-/memory trim  # index over its read limit — drop old entries
-/context      # what actually loaded this session, memory included
+/memory       # browse and open memory files, toggle auto memory, open the folder
+/context all  # what actually loaded this session, memory included
 
 # Or skip the commands, because these are just files on disk
 cat ~/.claude/projects/*/memory/MEMORY.md

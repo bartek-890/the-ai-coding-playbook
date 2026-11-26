@@ -24,6 +24,8 @@ claude mcp add --env AIRTABLE_API_KEY=KEY --transport stdio airtable \
 
 In JSON configuration the `type` field accepts `streamable-http` as an alias for `http`, so definitions copied from a server’s own docs work unmodified. WebSocket (`type: "ws"`) exists for servers that push events unprompted, but supports neither OAuth nor the `--transport` flag — header auth only.
 
+Already have the server’s JSON? `claude mcp add-json <name> '<json>'` takes it as is. To keep a token out of your shell history and process list, pipe it instead — `cat server.json | claude mcp add-json demo -` (v2.1.327; run it outside a Claude Code session).
+
 ## Scopes and precedence
 
 | Scope | Loads in | Shared | Stored in |
@@ -52,12 +54,19 @@ Project-scoped servers from `.mcp.json` require approval before use — a checke
 - **RESOURCES** — Reference with @server:resource in a prompt
 - **PROMPTS** — Exposed as slash commands: /mcp__server__prompt
 - **CHANNELS** — Push events into a live session — see below
+- **SKILLS** — Beta, v2.1.332: the server’s own instructions, as /<server>:<skill> → Ch. 12
 
-`/mcp` manages connections and runs OAuth flows; `claude mcp login <name>` does it from the command line. Long tool calls are backgrounded automatically rather than blocking the session.
+`/mcp` manages connections and runs OAuth flows; `claude mcp login <name>` does it from the command line. An MCP tool call still running after two minutes moves to a background task rather than blocking the session; `CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS` changes the threshold, `0` turns it off.
+
+## Tasks and elicitation: servers that run long and ask back
+
+- **MCP tasks** (terminal, v2.1.319). A server can run a long job itself — a report export, a build — and hand back a task instead of blocking. Claude keeps working, the footer shows `1 MCP task`, and when the job ends the result goes to Claude, not the transcript; ask Claude for it. `/tasks` lists the task; select it and press `x` to stop it. A task on a remote server keeps running after you exit — `claude --resume` the same session to follow it again; a stdio server’s process dies with Claude Code, so stop its tasks first. Tasks need an HTTP or stdio server connected on protocol revision 2026-07-28 and are on for terminal, Agent SDK, and GitHub Actions sessions.
+- **Elicitation.** A server can stop mid-task and ask you for structured input — **form** mode (fields the server defines) or **URL** mode (open a link for a sign-in that finishes in the browser). No configuration; the dialog just appears. To auto-answer without a dialog, use the `Elicitation` hook. → Ch. 14 In `claude -p` and SDK runs nobody can answer, so Claude Code asks the server to cancel the task.
+- **The client moved.** Claude Code runs MCP on SDK 2.0 (the v1 client is gone; `MCP_SDK_GENERATION=v1` now means a compatibility mode, v2.1.323), and negotiates the newer protocol revision with servers that support it. A server that does shows a **Protocol** row on its `/mcp` page.
 
 ## The cost, and how to keep it down
 
-Every connected server costs tool names at startup. Schemas are deferred by default and load through `ToolSearch` on demand — the pattern Anthropic measured cutting upfront tool tokens from ~77K to ~8.7K. Three habits:
+Every connected server costs tool names at startup. Schemas are deferred by default and load through `ToolSearch` on demand — the pattern Anthropic measured cutting upfront tool tokens from ~77K to ~8.7K. `ENABLE_TOOL_SEARCH` tunes it: `auto:N` loads definitions upfront while they total under N% of the window and defers them beyond that, `false` loads everything. Three habits:
 
 - **Disconnect servers you are not using this week** rather than denying their tools. Only connected servers cost anything.
 - **Scope a noisy server to a subagent** with the `mcpServers` frontmatter field, so its names never reach your main window.
@@ -93,7 +102,7 @@ claude --channels plugin:telegram@claude-plugins-official
 /telegram:access policy allowlist
 ```
 
-Requires v2.1.80+; permission relay — approving tool use from your phone — requires v2.1.81+. Research preview, Anthropic auth only. `fakechat` runs a localhost UI at `:8787` for testing the pipe without tokens.
+Requires v2.1.80+; permission relay — approving tool use from your phone — requires v2.1.81+. Research preview, Anthropic auth only. `fakechat` runs a localhost UI at `:8787` for testing the pipe without tokens. A channel server that negotiates MCP revision 2026-07-28 is not registered as a channel — that revision cannot carry channel messages — so keep stdio channel servers on the earlier handshake with `MCP_PROTOCOL_NEGOTIATION=legacy`.
 
 > **Warning — Check the sender, not the room**
 >

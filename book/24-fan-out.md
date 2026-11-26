@@ -22,15 +22,19 @@ For a large migration, the winning move is not a bigger context window — it is
 
    ```
    for file in $(cat files.txt); do
-     claude -p "Migrate $file from db.connect to the new pool API.
-                Run: pytest \${file/src/tests}. Return OK or FAIL." \
+     result=$(claude --bare -p "Migrate $file from db.connect to the new pool API.
+                Run: pytest \${file/src/tests}. Reply with exactly OK or FAIL." \
        --allowedTools "Read,Edit,Bash(pytest *)" \
+       --permission-mode dontAsk \
        --max-turns 12 \
-       --output-format text
+       --output-format text) || result="FAIL (exit $?)"
+     echo "$file: $result"
    done | tee migration.log
    ```
 
-   `--allowedTools` is not optional here. An unattended loop with unrestricted Bash is a loop with unrestricted Bash, two thousand times.
+   `--allowedTools` is not optional here. An unattended loop with unrestricted Bash is a loop with unrestricted Bash, two thousand times. `claude -p` starts in Manual mode, so anything not allowed is denied; `dontAsk` makes that refusal explicit instead of waiting on a prompt.
+
+   `--bare` skips hooks, skills, plugins, MCP servers, auto memory, and `CLAUDE.md` discovery, so every invocation starts fast and behaves the same on any machine; pass what the run needs by flag. It does not read your login either — set `ANTHROPIC_API_KEY`. Anthropic recommends it for scripted calls and plans to make it the default for `-p`. The exit status is part of the contract: 0 on success, non-zero when the run fails (SIGTERM gives 143), so branch on it as the line above does rather than trusting the text.
 
 4. **Triage the log, then re-run only the failures**
 
@@ -66,7 +70,7 @@ Use `--verbose` while developing the script and turn it off in production. `stre
 
 ## The built-in alternative
 
-`/batch <instruction>` decomposes a large change into parallel work units across git worktrees, inside one session. It costs less setup than a shell loop and gives up some control. Try it first for anything under a few dozen units; write the loop when you need the log, the retry pass, and the budget cap.
+`/batch <instruction>` researches the codebase, splits a large change into 5–30 independent units, shows you the plan, and on approval spawns one background subagent per unit in its own git worktree; each implements its unit, runs tests, and opens a PR or reports what happened. It costs less setup than a shell loop and gives up some control. Try it first for anything under a few dozen units; write the loop when you need the log, the retry pass, and the budget cap. When the job outgrows a few dozen units or needs findings cross-checked, ask for a dynamic workflow (“use a workflow to migrate every component …”; `/workflows` shows progress and per-agent tokens). It can fan out to hundreds of agents, so run it on one directory first.
 
 > **Key — Why fan-out beats one big session**
 >

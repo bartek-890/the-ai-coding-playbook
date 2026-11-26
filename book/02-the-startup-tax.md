@@ -12,10 +12,11 @@ Before your first keystroke, a measurable amount of your context window is alrea
 | Project-root `CLAUDE.md` | Full file, no cap | Loaded in full regardless of length. Re-injected from disk after compaction. |
 | Parent-directory `CLAUDE.md` | Full file, each level | Every ancestor directory up to the filesystem root, root-down order. |
 | `CLAUDE.local.md` | Full file | Appended after `CLAUDE.md` at each level. Gitignored by convention. |
+| `AGENTS.md` | Full file, each level | Read **in place of** `CLAUDE.md` when no `CLAUDE.md` or `CLAUDE.local.md` exists in the working directory or above it (v2.1.277+). With both present only `CLAUDE.md` loads; `@AGENTS.md` inside it shares one file with other agents. |
 | `.claude/rules/*.md` without `paths:` | Full file | Same priority as `.claude/CLAUDE.md`. Discovered recursively. |
 | `@path` imports | Full file, ≤4 hops deep | Expanded at launch. Splitting into imports organises; it does **not** reduce context. |
 | Auto memory `MEMORY.md` | First **200 lines or 25 KB**, whichever is smaller | Hard-truncated. Topic files in the same directory are **not** loaded until read. |
-| MCP tool _names_ | Names only by default | Full schemas deferred to the `ToolSearch` tool. Only **connected** servers cost anything. |
+| MCP tool _names_ | Names and server instructions | Instructions are cut at 4,096 chars. Full schemas (≤16,384 chars each) are deferred to the `ToolSearch` tool. Only **connected** servers cost anything. |
 | Skill _descriptions_ | One line each, ≤1,536 chars | Bodies load only on invocation. |
 | Subagent names + descriptions | One line each | Every registered agent costs a line, used or not. |
 | Output style / `--append-system-prompt` | Full text | Both enter the system prompt itself. |
@@ -23,7 +24,7 @@ Before your first keystroke, a measurable amount of your context window is alrea
 
 > **Key — Measure yours, don’t guess**
 >
-> `/context` shows the live breakdown by category with optimisation suggestions. `/memory` shows which memory files actually loaded. `/mcp` shows per-server cost. Run all three once on your main project before you change anything — most people are surprised by which line dominates.
+> `/context` shows the live breakdown by category with optimisation suggestions. `/memory` shows which memory files actually loaded. `/mcp` shows per-server cost. `/skill-doctor` (v2.1.261+) lists what each skill costs and how often it fires. Run them once on your main project before you change anything — most people are surprised by which line dominates. `/doctor prompt-audit` (v2.1.283+) then flags `CLAUDE.md`, `AGENTS.md`, skills, and agents that carry instructions written for older models.
 
 ## The instruction budget
 

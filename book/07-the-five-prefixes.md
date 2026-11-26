@@ -6,7 +6,7 @@ The first character of your input changes what the whole line means. Five of the
 
 ## `/` — commands and skills
 
-Start with `/` to run a built-in command, a bundled skill, a skill you wrote, or one a plugin contributed. Type `/` alone for the full menu, or `/` plus letters to filter. There is no distinction in the menu between a command and a skill; both are things you invoke by name. → Ch. 08, 12
+Start with `/` to run a built-in command, a bundled skill, a skill you wrote, or one a plugin contributed. Type `/` alone for the full menu, or `/` plus letters to filter. There is no distinction in the menu between a command and a skill; both are things you invoke by name. A command is recognised only at the start of the message, but you can stack up to six skills — `/skill-a /skill-b do XYZ` loads both and hands the trailing text to each — and typing `/` mid-prompt completes names. → Ch. 08, 12
 
 ## `!` — shell mode
 

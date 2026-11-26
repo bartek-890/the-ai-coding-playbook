@@ -25,7 +25,7 @@ Six rungs, in order. Each is cheaper than the one after it, so climb rather than
 
 3. **Bug keeps returning after “fixes”? Demand a cause list first**
 
-   This forces diagnosis over symptom-patching and usually surfaces the real root cause on the first pass.
+   This forces diagnosis over symptom-patching and usually surfaces the real root cause on the first pass. This is also the rung to raise effort: the 5.5 models and Fable 5.2 default to `medium` in Claude Code, which fits a clear-scope feature, not a bug in code you did not write. Try `/effort high` (or `xhigh` for a flaky test or a schema change with unknown readers), or put `ultrathink` in this one prompt to raise only that turn. → Ch. 28
 
    ```
    before writing any more code: list every possible cause of this
@@ -42,7 +42,7 @@ Six rungs, in order. Each is cheaper than the one after it, so climb rather than
 
 6. **Give the agent real eyes**
 
-   For anything involving a UI, an MCP browser tool (Playwright, or Claude’s Chrome integration) lets the agent drive your app and _observe_ behaviour instead of inferring it from source. Direct observation shortens every UI debugging loop.
+   For anything involving a UI, an MCP browser tool (Playwright, or Claude’s Chrome integration) lets the agent drive your app and _observe_ behaviour instead of inferring it from source. Direct observation shortens every UI debugging loop. `/verify` does the general version: it builds and runs your app and judges the result, which catches what tests and typechecks miss.
 
 > **Key — The two-correction rule**
 >

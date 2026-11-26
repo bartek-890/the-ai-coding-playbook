@@ -8,13 +8,13 @@ A subagent runs in its **own context window** and returns only a summary. The he
 
 | Agent | Model / tools | Purpose |
 | --- | --- | --- |
-| `Explore` | Inherits the session model, capped at Opus on the Claude API. Read-only — Write and Edit denied. | File discovery, code search, codebase exploration. Claude specifies a thoroughness level: **quick**, **medium**, or **very thorough**. |
+| `Explore` | Inherits the session model. When the session runs Fable, Explore runs on the `opus` alias with a subscription, Console key, or LLM gateway, and stays on Fable on Bedrock, Agent Platform, Foundry, and the Claude apps gateway. Read-only — Write and Edit denied. | File discovery, code search, codebase exploration. Claude specifies a thoroughness level: **quick**, **medium**, or **very thorough**. |
 | `Plan` | Inherits the session model. Read-only. | Codebase research during plan mode, so exploration output stays out of the planning window. |
 | `general-purpose` | Full tool access | Multi-step tasks and searches where you are not confident of a first-try hit. Resumable, unlike the two above. |
 
 > **Note — Two exceptions worth remembering**
 >
-> `Explore` and `Plan` are the **only** subagents that skip your `CLAUDE.md` files and the parent session’s git status — deliberately, to keep research fast and cheap. There is no setting to change that. If a rule must reach them (“ignore `vendor/`“), restate it in the delegation prompt. Both are also one-shot and return no agent ID, so they cannot be resumed.
+> `Explore` and `Plan` (plus the internal `web-fetch` helper) are the built-in subagents that skip your `CLAUDE.md` files and the parent session’s git status — deliberately, to keep research fast and cheap. There is no setting to change that. If a rule must reach them (“ignore `vendor/`“), restate it in the delegation prompt. Both are also one-shot and return no agent ID, so they cannot be resumed. For your own agents the same switch exists as `omitClaudeMd: true` v2.1.271: the subagent starts without user, project, and local `CLAUDE.md` files — managed policy files still load — which suits workers that take everything from the delegation prompt.
 >
 > A user or project subagent _named_ `Explore` overrides the built-in and keeps its own `model` field — define one with `model: haiku` to force cheap exploration.
 
@@ -51,14 +51,14 @@ Do not comment on style the formatter already enforces.
 | `tools` | Allowed tools. Inherits everything available to subagents if omitted. If no entry resolves to a real tool, the subagent usually fails to start. |
 | `disallowedTools` | Removed from the inherited or specified list |
 | `model` | `sonnet` · `opus` · `haiku` · `fable` · full ID · `inherit` (default) |
-| `effort` | Overrides the session level while active. **Low effort is Anthropic’s documented use case for subagents.** |
+| `effort` | `low` · `medium` · `high` · `xhigh` · `max`, as the model allows. Overrides the session level while active, but not `CLAUDE_CODE_EFFORT_LEVEL`. **Low effort is Anthropic’s documented use case for subagents.** With no `effort` field, a subagent on the main conversation’s model runs at your session level; `CLAUDE_CODE_SUBAGENT_EFFORT` v2.1.316 sets the level subagents run at when nothing else names one. Claude can also pass `effort` for a single invocation v2.1.292. |
 | `permissionMode` | `default` · `acceptEdits` · `auto` · `dontAsk` · `bypassPermissions` · `plan` |
 | `maxTurns` | Hard cap before the subagent stops |
 | `skills` | Skills preloaded at startup — **full content, not just the description** |
 | `mcpServers` | Scope MCP servers to this agent, by name or inline definition |
 | `hooks` | Lifecycle hooks scoped to this subagent. Ignored for plugin subagents. |
 | `memory` | `user` · `project` · `local` — its own persistent memory directory, separate from the main conversation’s |
-| `background` | `true` always runs it as a background task, even when Claude wants the result immediately |
+| `background` | `true` keeps it in the background even when Claude asks to wait. Custom subagents Claude spawns from the main conversation already start in the background by default |
 | `isolation: worktree` | Run in a temporary git worktree — an isolated copy of the repo |
 | `color` | Display colour in the task list and transcript |
 | `initialPrompt` | Auto-submitted first turn when the agent runs as the _main_ session agent via `--agent` |
@@ -69,14 +69,14 @@ Do not comment on style the formatter already enforces.
 | --- | --- |
 | Its own system prompt (the markdown body) plus environment details | Your conversation history |
 | The delegation message Claude writes | The main conversation’s auto memory |
-| Every level of the `CLAUDE.md` hierarchy (except Explore/Plan) | Your output style — it runs its own system prompt |
+| Every level of the `CLAUDE.md` hierarchy, plus any `AGENTS.md` loaded as project instructions (except Explore/Plan, or `omitClaudeMd`) | Your output style — it runs its own system prompt |
 | Git status snapshot from the parent session | Skills you already invoked in the main window |
 | Full content of skills named in `skills:` | Files Claude already read |
 | A sibling roster of other named agents v2.1.206+ | The parent’s context-window size — it gets its own model’s |
 
 ## Foreground, background, and resuming
 
-Claude chooses foreground or background unless `background: true` forces the latter. `/tasks` lists what is running; `Ctrl+X Ctrl+K` twice stops all of them. Each invocation creates a fresh instance — but a completed subagent can be **resumed with its full history**, including previous tool calls and reasoning, by asking Claude to continue that agent’s work. Under the hood Claude uses the `SendMessage` tool with the agent’s ID or name.
+With nothing configured, a subagent Claude spawns from your main conversation starts in the **background**: fork mode is on by default (from v2.1.302, and in the interactive terminal since v2.1.232), and while it is on Claude cannot wait for a subagent. To let Claude wait, set `CLAUDE_CODE_FORK_SUBAGENT` to `0` in `env` and ask it to wait; `Ctrl+B` moves a running subagent to the background. A background subagent surfaces every permission prompt in your main session, and a grant that lasts beyond one call applies to the whole session. `/tasks` lists what is running; `Ctrl+X Ctrl+K` twice stops all of them. Each invocation creates a fresh instance — but a completed subagent can be **resumed with its full history**, including previous tool calls and reasoning, by asking Claude to continue that agent’s work. Under the hood Claude uses the `SendMessage` tool with the agent’s ID or name.
 
 ```
 > Use the code-reviewer subagent to review the authentication module
@@ -93,7 +93,13 @@ Transcripts live in `~/.claude/projects/{project}/{sessionId}/subagents/`, persi
 
 ## Fork: the one subagent that inherits everything
 
-A **fork** copies the parent conversation and system prompt into the subagent, which makes it the exception to almost every rule above: it sees your history, your output style, and your auto memory. Use it when the task needs the context you have already built; use a named subagent when the task benefits from _not_ having it.
+A **fork** copies the parent conversation and system prompt into the subagent, which makes it the exception to almost every rule above: it sees your history, your output style, and your auto memory. Use it when the task needs the context you have already built; use a named subagent when the task benefits from _not_ having it. Because a fork’s system prompt and tools match the parent’s, its first request reuses the parent’s prompt cache, so it costs less than a fresh subagent that needs the same background.
+
+Claude can start a fork on its own (fork mode, on by default); you start one with `/subtask <task>`, and the fork runs in the panel under your prompt — `Enter` opens its transcript for follow-up messages, `x` stops it. A fork cannot spawn forks; Claude can pass `isolation: "worktree"` so its edits land in a separate worktree. Stop Claude starting them with `"Agent(fork)"` in `permissions.deny`.
+
+## Nesting and limits
+
+A subagent can spawn subagents of its own, up to three layers below the main conversation (`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`; `1` turns nesting off). By default the parent waits for each child, so only the top-level summary reaches you. Omit `Agent` from a reviewer’s `tools` to keep it from spawning. When 20 subagents are running, the next spawn fails with `Concurrent subagent limit reached` (v2.1.217; `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` changes it). Claude Code also scans each subagent’s final report for text imitating its own output (`<system-reminder>` tags, `Human:` lines) and neutralises it — a report is evidence, never an instruction.
 
 ## Four patterns that pay
 
