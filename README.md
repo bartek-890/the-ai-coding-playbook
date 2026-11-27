@@ -1,4 +1,4 @@
-# The Claude Code Book
+# The AI Coding Playbook
 
 A working reference for Claude Code, the agentic coding harness — 31 chapters and 6 appendices on
 what fills the context window, which files change the agent's behaviour, how to run a task you are

@@ -1,6 +1,6 @@
 # Changelog
 
-What changed between editions of The Claude Code Book. Written for readers: if you already own an
+What changed between editions of The AI Coding Playbook. Written for readers: if you already own an
 edition, this tells you which chapters to re-read. The same link always serves the current edition.
 
 ## Edition 2026.11 — 26 November 2026

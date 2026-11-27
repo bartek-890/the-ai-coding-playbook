@@ -80,4 +80,4 @@ Three findings in this book come from working practice rather than a paper, and 
 >
 > **The one thing worth carrying out of all of it:** give the agent a check it can run, and review the evidence rather than the claim. Every other practice in this book is a way of making that cheaper.
 
-The Claude Code Book · Edition 2026.11 · Bartłomiej Krupa · bartlomiejkrupa.dev
+The AI Coding Playbook · Edition 2026.11 · Bartłomiej Krupa · bartlomiejkrupa.dev
